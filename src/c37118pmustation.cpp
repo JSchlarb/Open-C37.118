@@ -223,6 +223,9 @@ void PMU_Station::STAT_set(unsigned short value)
  */
 void PMU_Station::PHASOR_VALUE_set(Complex value, unsigned int pos)
 {
+	if (pos >= this->PHASOR_Values.size()) {
+		return;
+	}
 	this->PHASOR_Values[pos] = value;
 }
 
@@ -232,6 +235,9 @@ void PMU_Station::PHASOR_VALUE_set(Complex value, unsigned int pos)
  */
 void PMU_Station::ANALOG_VALUE_set(float value, unsigned int pos)
 {
+	if (pos >= this->ANALOG_Values.size()) {
+		return;
+	}
 	this->ANALOG_Values[pos] = value;
 }
 
@@ -241,6 +247,9 @@ void PMU_Station::ANALOG_VALUE_set(float value, unsigned int pos)
  */
 void PMU_Station::DIGITAL_VALUE_set(bool value, unsigned int channel, unsigned int pos)
 {
+	if (channel >= this->DIGITAL_Values.size() || pos >= this->DIGITAL_Values[channel].size()) {
+		return;
+	}
 	this->DIGITAL_Values[channel][pos] = value;
 }
 
@@ -250,6 +259,9 @@ void PMU_Station::DIGITAL_VALUE_set(bool value, unsigned int channel, unsigned i
  */
 void PMU_Station::DIGITAL_VALUE_set(vector<bool> value, unsigned int channel)
 {
+	if (channel >= this->DIGITAL_Values.size() || value.size() != 16) {
+		return;
+	}
 	this->DIGITAL_Values[channel] = value;
 }
 
@@ -380,6 +392,9 @@ unsigned short PMU_Station::DGNMR_get()
  */
 string PMU_Station::PH_NAME_get(unsigned int pos)
 {
+	if (pos >= this->CHNAM_Phasor.size()) {
+		return "";
+	}
 	return (this->CHNAM_Phasor[pos]);
 }
 /**
@@ -387,6 +402,9 @@ string PMU_Station::PH_NAME_get(unsigned int pos)
  */
 string PMU_Station::AN_NAME_get(unsigned int pos)
 {
+	if (pos >= this->CHNAM_Analog.size()) {
+		return "";
+	}
 	return (this->CHNAM_Analog[pos]);
 }
 /**
@@ -394,6 +412,9 @@ string PMU_Station::AN_NAME_get(unsigned int pos)
  */
 string PMU_Station::DG_NAME_get(unsigned int pos)
 {
+	if (pos >= this->CHNAM_Digital.size()) {
+		return "";
+	}
 	return (this->CHNAM_Digital[pos]);
 }
 // UNIT
@@ -402,6 +423,9 @@ string PMU_Station::DG_NAME_get(unsigned int pos)
  */
 unsigned long PMU_Station::PHUNIT_get(unsigned int pos)
 {
+	if (pos >= this->PHUNIT.size()) {
+		return 0;
+	}
 	return (this->PHUNIT[pos]);
 }
 /**
@@ -409,6 +433,9 @@ unsigned long PMU_Station::PHUNIT_get(unsigned int pos)
  */
 unsigned long PMU_Station::ANUNIT_get(unsigned int pos)
 {
+	if (pos >= this->ANUNIT.size()) {
+		return 0;
+	}
 	return (this->ANUNIT[pos]);
 }
 /**
@@ -416,6 +443,9 @@ unsigned long PMU_Station::ANUNIT_get(unsigned int pos)
  */
 unsigned long PMU_Station::DGUNIT_get(unsigned int pos)
 {
+	if (pos >= this->DGUNIT.size()) {
+		return 0;
+	}
 	return (this->DGUNIT[pos]);
 }
 
@@ -425,6 +455,9 @@ unsigned long PMU_Station::DGUNIT_get(unsigned int pos)
  */
 unsigned long PMU_Station::PHFACTOR_get(unsigned int pos)
 {
+	if (pos >= this->PHUNIT.size()) {
+		return 1;
+	}
 	return ((this->PHUNIT[pos] & 0x0FFFFFF));
 }
 /**
@@ -432,6 +465,9 @@ unsigned long PMU_Station::PHFACTOR_get(unsigned int pos)
  */
 unsigned long PMU_Station::ANFACTOR_get(unsigned int pos)
 {
+	if (pos >= this->ANUNIT.size()) {
+		return 1;
+	}
 	return ((this->ANUNIT[pos] & 0x0FFFFFF));
 }
 
@@ -472,6 +508,9 @@ unsigned short PMU_Station::STAT_get()
  */
 Complex PMU_Station::PHASOR_VALUE_get(unsigned int pos)
 {
+	if (pos >= this->PHASOR_Values.size()) {
+		return Complex(0, 0);
+	}
 	return (this->PHASOR_Values[pos]);
 }
 
@@ -481,6 +520,9 @@ Complex PMU_Station::PHASOR_VALUE_get(unsigned int pos)
  */
 float PMU_Station::ANALOG_VALUE_get(unsigned int pos)
 {
+	if (pos >= this->ANALOG_Values.size()) {
+		return 0.0f;
+	}
 	return (this->ANALOG_Values[pos]);
 }
 /**
@@ -489,6 +531,12 @@ float PMU_Station::ANALOG_VALUE_get(unsigned int pos)
  */
 bool PMU_Station::DIGITAL_VALUE_get(unsigned int channel, unsigned int pos)
 {
+	if (channel >= this->DIGITAL_Values.size()) {
+		return false;
+	}
+	if (pos >= this->DIGITAL_Values[channel].size()) {
+		return false;
+	}
 	return (this->DIGITAL_Values[channel][pos]);
 }
 /**
@@ -497,6 +545,9 @@ bool PMU_Station::DIGITAL_VALUE_get(unsigned int channel, unsigned int pos)
  */
 vector<bool> PMU_Station::DIGITAL_VALUE_get(unsigned int channel)
 {
+	if (channel >= this->DIGITAL_Values.size()) {
+		return vector<bool>(16, false);
+	}
 	return (this->DIGITAL_Values[channel]);
 }
 

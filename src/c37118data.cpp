@@ -47,12 +47,26 @@ typedef union _data
 
 unsigned short DATA_Frame::pack(unsigned char **buff)
 {
+	if (buff == NULL || this->associate_current_config == NULL) {
+		return 0;
+	}
+	
 	myData aux_conv;
 
 	unsigned short size = 14;
+	
+	if (this->associate_current_config->NUM_PMU_get() > 1000) {
+		return 0;
+	}
+	
 	// compute channel numbers foreach exists pmu
 	for (int i = 0; i < this->associate_current_config->NUM_PMU_get(); i++)
 	{
+		if (this->associate_current_config->pmu_station_list[i] == NULL) {
+			continue;
+		}
+		
+		unsigned long temp_size = size;
 
 		// STAT
 		size += 2;
@@ -116,6 +130,9 @@ unsigned short DATA_Frame::pack(unsigned char **buff)
 	if (*buff == NULL)
 	{
 		*buff = (unsigned char *)malloc(this->FRAMESIZE_get() * sizeof(char));
+		if (*buff == NULL) {
+			return 0;
+		}
 	}
 	// copy buff memory address
 	aux_buff = *buff;
@@ -265,6 +282,11 @@ unsigned short DATA_Frame::pack(unsigned char **buff)
 		}	  // end phasors
 
 		// FREQ e DFREQ
+		size_t freq_size = this->associate_current_config->pmu_station_list[i]->FORMAT_FREQ_TYPE_get() ? 8 : 4;
+		if (bytes_read + freq_size > buffer_size) {
+			return;
+		}
+		
 		//  Data mode = float
 		if (this->associate_current_config->pmu_station_list[i]->FORMAT_FREQ_TYPE_get())
 		{
@@ -388,6 +410,10 @@ unsigned short DATA_Frame::pack(unsigned char **buff)
  */
 void DATA_Frame::unpack(unsigned char *buffer)
 {
+	if (buffer == NULL || this->associate_current_config == NULL) {
+		return;
+	}
+	
 	unsigned char *aux_buffer;
 	myData aux_conv1, aux_conv2;
 	unsigned short aux1, aux2;
@@ -396,6 +422,11 @@ void DATA_Frame::unpack(unsigned char *buffer)
 	aux_buffer += 2;
 	this->FRAMESIZE_set(ntohs(*((unsigned short *)(aux_buffer))));
 	aux_buffer += 2;
+	
+	if (this->FRAMESIZE_get() < 16 || this->FRAMESIZE_get() > 65535) {
+		return;
+	}
+	
 	this->IDCODE_set(ntohs(*((unsigned short *)(aux_buffer))));
 	aux_buffer += 2;
 	this->SOC_set(ntohl(*((unsigned long *)(aux_buffer))));
@@ -403,13 +434,25 @@ void DATA_Frame::unpack(unsigned char *buffer)
 	this->FRACSEC_set(ntohl(*((unsigned long *)(aux_buffer))));
 	aux_buffer += 4;
 
+	size_t bytes_read = 14;
+	size_t buffer_size = this->FRAMESIZE_get();
+
 	// For each pmu station
 	for (int i = 0; i < this->associate_current_config->NUM_PMU_get(); i++)
 	{
+		if (this->associate_current_config->pmu_station_list[i] == NULL) {
+			continue;
+		}
+		
+		if (bytes_read + 2 > buffer_size) {
+			return;
+		}
 
 		// Get Status Value
 		this->associate_current_config->pmu_station_list[i]->STAT_set(ntohs(*((unsigned short *)(aux_buffer))));
 		aux_buffer += 2;
+		bytes_read += 2;
+		
 		// Foreach Phasors
 		for (int j = 0; j < this->associate_current_config->pmu_station_list[i]->PHNMR_get(); j++)
 		{
@@ -472,6 +515,7 @@ void DATA_Frame::unpack(unsigned char *buffer)
 				}
 
 			} // end data mode
+			bytes_read += phasor_size;
 		}	  // end phasors
 
 		// FREQ e DFREQ
@@ -516,10 +560,16 @@ void DATA_Frame::unpack(unsigned char *buffer)
 
 			this->associate_current_config->pmu_station_list[i]->DFREQ_set(((float)aux2) / 100);
 		}
+		bytes_read += freq_size;
 
 		// Foreach ANALOGS
 		for (int j = 0; j < this->associate_current_config->pmu_station_list[i]->ANNMR_get(); j++)
 		{
+			size_t analog_size = this->associate_current_config->pmu_station_list[i]->FORMAT_ANALOG_TYPE_get() ? 4 : 2;
+			if (bytes_read + analog_size > buffer_size) {
+				return;
+			}
+			
 			// Data mode = float
 			if (this->associate_current_config->pmu_station_list[i]->FORMAT_ANALOG_TYPE_get())
 			{
@@ -541,13 +591,19 @@ void DATA_Frame::unpack(unsigned char *buffer)
 				aux_buffer += 2;
 				this->associate_current_config->pmu_station_list[i]->ANALOG_VALUE_set(aux1, j);
 			} // end data mode
+			bytes_read += analog_size;
 		}	  // end analog
 
 		// Foreach DIGITAL
 		for (int j = 0; j < this->associate_current_config->pmu_station_list[i]->DGNMR_get(); j++)
 		{
+			if (bytes_read + 2 > buffer_size) {
+				return;
+			}
+			
 			aux1 = ntohs(*((unsigned short *)(aux_buffer)));
 			aux_buffer += 2;
+			bytes_read += 2;
 			// cout<<"AUX: "<<aux1<<endl;
 			for (int k = 0; k < 16; k++)
 			{
@@ -565,5 +621,7 @@ void DATA_Frame::unpack(unsigned char *buffer)
 	} // foreach PMU STATION
 
 	// CRC (PREVIOUS COMPUTED in PACK/UNPACK Methods)
-	this->CHK_set(ntohs(*(unsigned short *)(aux_buffer)));
+	if (bytes_read + 2 <= buffer_size) {
+		this->CHK_set(ntohs(*(unsigned short *)(aux_buffer)));
+	}
 }

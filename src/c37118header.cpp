@@ -59,24 +59,46 @@ string HEADER_Frame::DATA_get()
  */
 void HEADER_Frame::unpack(unsigned char *buffer)
 {
+	if (buffer == NULL) {
+		return;
+	}
+	
 	unsigned char *buffer2;
 	unsigned short size_data;
 	this->SYNC_set(ntohs(*((unsigned short *)(buffer))));
 	this->FRAMESIZE_set(ntohs(*((unsigned short *)(buffer + 2))));
+	
+	if (this->FRAMESIZE_get() < 16 || this->FRAMESIZE_get() > 65535) {
+		return;
+	}
+	
 	this->IDCODE_set(ntohs(*((unsigned short *)(buffer + 4))));
 	this->SOC_set(ntohl(*((unsigned long *)(buffer + 6))));
 	this->FRACSEC_set(ntohl(*((unsigned long *)(buffer + 10))));
 	buffer2 = buffer + 14;
 
 	size_data = this->FRAMESIZE_get() - 16;
-	char *cstr = new char[size_data];
-	for (int ptr = 0; ptr < size_data; ptr++)
-	{
-		cstr[ptr] = buffer2[ptr];
+	
+	if (size_data > 0 && size_data < 65000) {
+		if (size_data < 4096) {
+			char cstr[4096];
+			memcpy(cstr, buffer2, size_data);
+			cstr[size_data] = '\0';
+			this->DATA_set(string(cstr, size_data));
+		} else {
+			char *cstr = new char[size_data + 1];
+			if (cstr != NULL) {
+				memcpy(cstr, buffer2, size_data);
+				cstr[size_data] = '\0';
+				this->DATA_set(string(cstr, size_data));
+				delete[] cstr;
+			}
+		}
 	}
-	this->DATA_set(string(cstr));
 
-	this->CHK_set(ntohs(*((unsigned short *)(buffer + (this->FRAMESIZE_get() - 2)))));
+	if (this->FRAMESIZE_get() >= 2) {
+		this->CHK_set(ntohs(*((unsigned short *)(buffer + (this->FRAMESIZE_get() - 2)))));
+	}
 	// printf("Packet Received: %x,%x,%x,%x,%x,%x,%x\n",this->FRAMESIZE_get(),this->IDCODE_get(),this->SOC_get(),this->FRACSEC_get(),this->CMD_get(),this->EXTRAFRAME_get(),this->CHK_get());
 }
 
@@ -87,10 +109,18 @@ void HEADER_Frame::unpack(unsigned char *buffer)
  */
 unsigned short HEADER_Frame::pack(unsigned char **buff)
 {
+	if (buff == NULL) {
+		return 0;
+	}
+	
 	unsigned char *aux_buff;
 	unsigned short *shptr;
 	unsigned long *lptr;
 	string str = this->DATA_get();
+
+	if (str.size() > 65000) {
+		return 0;
+	}
 
 	unsigned short size = 16 + str.size();
 
@@ -99,6 +129,9 @@ unsigned short HEADER_Frame::pack(unsigned char **buff)
 
 	// buff size reserved
 	*buff = (unsigned char *)malloc(this->FRAMESIZE_get() * sizeof(char));
+	if (*buff == NULL) {
+		return 0;
+	}
 	// copy buff memory address
 	aux_buff = *buff;
 	// create a short and long pointers, and increment by byte_size(2,4...)
@@ -117,13 +150,8 @@ unsigned short HEADER_Frame::pack(unsigned char **buff)
 	lptr = (unsigned long *)(aux_buff);
 	*lptr = htonl(this->FRACSEC_get());
 	aux_buff += 4;
-	char *cstr = new char[str.size()];
-	// Get name string and convert to char string
-	strncpy(cstr, str.c_str(), str.size());
-	for (size_t ptr = 0; ptr < str.size(); ptr++)
-	{
-		aux_buff[ptr] = cstr[ptr];
-	}
+	
+	memcpy(aux_buff, str.c_str(), str.size());
 	aux_buff += str.size();
 
 	// Compute CRC from current frame

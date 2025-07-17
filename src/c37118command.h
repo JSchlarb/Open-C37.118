@@ -30,6 +30,7 @@ class CMD_Frame : public C37118
 
 public:
 	CMD_Frame();
+	~CMD_Frame();
 
 	/**
 	 * SET Methods

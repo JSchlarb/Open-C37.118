@@ -34,6 +34,16 @@ CMD_Frame::CMD_Frame()
 {
 	this->SYNC = (A_SYNC_AA << 8 | A_SYNC_CMD);
 	this->FRAMESIZE = 18;
+	this->EXTRAFRAME = NULL;
+}
+
+// Destructor
+CMD_Frame::~CMD_Frame()
+{
+	if (this->EXTRAFRAME != NULL) {
+		free(this->EXTRAFRAME);
+		this->EXTRAFRAME = NULL;
+	}
 }
 
 /**
@@ -41,6 +51,9 @@ CMD_Frame::CMD_Frame()
  */
 void CMD_Frame::EXTRAFRAME_set(unsigned char *value)
 {
+	if (this->EXTRAFRAME != NULL) {
+		free(this->EXTRAFRAME);
+	}
 	this->EXTRAFRAME = value;
 }
 /**
@@ -73,18 +86,34 @@ unsigned char *CMD_Frame::EXTRAFRAME_get()
  */
 void CMD_Frame::unpack(unsigned char *buffer)
 {
+	if (buffer == NULL) {
+		return;
+	}
+	
 	this->SYNC_set(ntohs(*((unsigned short *)(buffer))));
 	this->FRAMESIZE_set(ntohs(*((unsigned short *)(buffer + 2))));
+	
+	if (this->FRAMESIZE_get() < 18 || this->FRAMESIZE_get() > 65535) {
+		return;
+	}
+	
 	this->IDCODE_set(ntohs(*((unsigned short *)(buffer + 4))));
 	this->SOC_set(ntohl(*((unsigned long *)(buffer + 6))));
 	this->FRACSEC_set(ntohl(*((unsigned long *)(buffer + 10))));
 	this->CMD_set(ntohs(*((unsigned short *)(buffer + 14))));
+	
 	// EXTRAFRAME needs a special treatment, user defined data
 	// unsigned char array to store the data
-	this->EXTRAFRAME = (unsigned char *)malloc(sizeof(char) * (this->FRAMESIZE_get() - 18));
-	for (int ptr = 0; ptr < this->FRAMESIZE_get() - 18; ptr++)
-	{
-		this->EXTRAFRAME[ptr] = buffer[ptr + 16];
+	if (this->EXTRAFRAME != NULL) {
+		free(this->EXTRAFRAME);
+		this->EXTRAFRAME = NULL;
+	}
+	
+	int extra_size = this->FRAMESIZE_get() - 18;
+	if (extra_size > 0 && extra_size < 65518) {
+		this->EXTRAFRAME = (unsigned char *)malloc(sizeof(char) * extra_size);
+		if (this->EXTRAFRAME != NULL) {
+			for (int ptr = 0; ptr < extra_size; ptr++)
 	}
 	this->CHK_set(ntohs(*((unsigned short *)(buffer + (this->FRAMESIZE_get() - 2)))));
 	// printf("Packet Received: %x,%x,%x,%x,%x,%x,%x\n",this->FRAMESIZE_get(),this->IDCODE_get(),this->SOC_get(),this->FRACSEC_get(),this->CMD_get(),this->EXTRAFRAME_get(),this->CHK_get());
@@ -97,6 +126,14 @@ void CMD_Frame::unpack(unsigned char *buffer)
  */
 unsigned short CMD_Frame::pack(unsigned char **buff)
 {
+	if (buff == NULL) {
+		return 0;
+	}
+	
+	if (this->FRAMESIZE_get() < 18 || this->FRAMESIZE_get() > 65535) {
+		return 0;
+	}
+	
 	unsigned char *aux_buff;
 	unsigned short *shptr;
 	unsigned long *lptr;
@@ -126,9 +163,12 @@ unsigned short CMD_Frame::pack(unsigned char **buff)
 	// EXTRAFRAME needs a special treatment, user defined data
 	// unsigned char array to store the data
 
-	for (int ptr = 0; ptr < this->FRAMESIZE_get() - 18; ptr++)
-	{
-		aux_buff[ptr] = this->EXTRAFRAME[ptr];
+	int extra_size = this->FRAMESIZE_get() - 18;
+	if (extra_size > 0 && this->EXTRAFRAME != NULL) {
+		for (int ptr = 0; ptr < extra_size; ptr++)
+		{
+			aux_buff[ptr] = this->EXTRAFRAME[ptr];
+		}
 	}
 	aux_buff = *buff + (this->FRAMESIZE_get() - 2);
 	shptr = (unsigned short *)(aux_buff);
